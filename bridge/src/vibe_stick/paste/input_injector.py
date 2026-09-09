@@ -5,36 +5,40 @@ import platform
 import subprocess
 import time
 from dataclasses import dataclass
-from ctypes import wintypes
 from typing import Protocol
+
+_UINT32 = ctypes.c_uint32
+_INT32 = ctypes.c_int32
+_UINT16 = ctypes.c_uint16
+_ULONG_PTR = ctypes.c_uint64 if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_uint32
 
 
 class _KeyboardInput(ctypes.Structure):
     _fields_ = [
-        ("wVk", wintypes.WORD),
-        ("wScan", wintypes.WORD),
-        ("dwFlags", wintypes.DWORD),
-        ("time", wintypes.DWORD),
-        ("dwExtraInfo", wintypes.WPARAM),
+        ("wVk", _UINT16),
+        ("wScan", _UINT16),
+        ("dwFlags", _UINT32),
+        ("time", _UINT32),
+        ("dwExtraInfo", _ULONG_PTR),
     ]
 
 
 class _MouseInput(ctypes.Structure):
     _fields_ = [
-        ("dx", wintypes.LONG),
-        ("dy", wintypes.LONG),
-        ("mouseData", wintypes.DWORD),
-        ("dwFlags", wintypes.DWORD),
-        ("time", wintypes.DWORD),
-        ("dwExtraInfo", wintypes.WPARAM),
+        ("dx", _INT32),
+        ("dy", _INT32),
+        ("mouseData", _UINT32),
+        ("dwFlags", _UINT32),
+        ("time", _UINT32),
+        ("dwExtraInfo", _ULONG_PTR),
     ]
 
 
 class _HardwareInput(ctypes.Structure):
     _fields_ = [
-        ("uMsg", wintypes.DWORD),
-        ("wParamL", wintypes.WORD),
-        ("wParamH", wintypes.WORD),
+        ("uMsg", _UINT32),
+        ("wParamL", _UINT16),
+        ("wParamH", _UINT16),
     ]
 
 
@@ -49,7 +53,7 @@ class _InputUnion(ctypes.Union):
 class _Input(ctypes.Structure):
     _anonymous_ = ("union",)
     _fields_ = [
-        ("type", wintypes.DWORD),
+        ("type", _UINT32),
         ("union", _InputUnion),
     ]
 
@@ -205,8 +209,8 @@ class WindowsPasteInjector:
                 )
             )
         event_array = (_Input * len(events))(*events)
-        user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(_Input), ctypes.c_int]
-        user32.SendInput.restype = wintypes.UINT
+        user32.SendInput.argtypes = [_UINT32, ctypes.POINTER(_Input), ctypes.c_int]
+        user32.SendInput.restype = _UINT32
         sent = user32.SendInput(len(events), event_array, ctypes.sizeof(_Input))
         if sent != len(events):
             raise OSError(f"SendInput sent {sent} of {len(events)} Unicode keyboard events")
@@ -217,7 +221,7 @@ class WindowsPasteInjector:
 
     def _send_key_event(self, key: int, *, key_up: bool) -> None:
         user32 = ctypes.windll.user32
-        user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, wintypes.WPARAM]
+        user32.keybd_event.argtypes = [ctypes.c_ubyte, ctypes.c_ubyte, _UINT32, _ULONG_PTR]
         user32.keybd_event.restype = None
         flags = self._KEYEVENTF_KEYUP if key_up else 0
         user32.keybd_event(key, 0, flags, 0)
