@@ -73,4 +73,4 @@ jobs:
 
       - name: Build StickS3 firmware
         working-directory: firmware/sticks3
-        run: idf.py set-target esp32s3 && idf.py build
+        run: . "${IDF_PATH}/export.sh" && idf.py set-target esp32s3 && idf.py build
