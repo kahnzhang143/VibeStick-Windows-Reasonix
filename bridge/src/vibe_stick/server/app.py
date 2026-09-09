@@ -35,6 +35,7 @@ from vibe_stick.protocol.state import (
 from vibe_stick.providers.base import ProviderObservation
 from vibe_stick.providers.claude import observe_claude
 from vibe_stick.providers.codex import observe_codex
+from vibe_stick.providers.reasonix import observe_reasonix
 
 MANUAL_STATUS_SECONDS = 60
 BRIDGE_NAME = "vibestick-bridge"
@@ -56,7 +57,7 @@ class BridgeStateStore:
         self._project_root = _resolve_project_root()
         self._manual_status_until = 0.0
         self._state = self._load_state()
-        self._last_active_provider = self._state.active_provider or "codex"
+        self._last_active_provider = self._state.active_provider or "reasonix"
         self._claude_quota = load_quota(CLAUDE_QUOTA_PATH)
         if not _has_quota(self._claude_quota):
             self._claude_quota = _claude_quota_from_state(self._state)
@@ -98,6 +99,11 @@ class BridgeStateStore:
             return self._state
 
     def refresh_quota_locked(self) -> None:
+        if self._state.active_provider == "reasonix":
+            self._state.provider = _provider_state_from_observation(
+                observe_reasonix(self._project_root)
+            )
+            return
         if self._state.active_provider == "claude":
             self._refresh_claude_usage_locked(force=True)
             self._state.provider = _provider_state_from_observation(
@@ -147,6 +153,7 @@ class BridgeStateStore:
     def _refresh_providers_locked(self) -> None:
         codex_observation = observe_codex(self._project_root)
         claude_observation = observe_claude(self._project_root)
+        reasonix_observation = observe_reasonix(self._project_root)
         self._apply_codex_quota(codex_observation)
 
         if time.monotonic() < self._manual_status_until:
@@ -157,6 +164,7 @@ class BridgeStateStore:
             self._last_active_provider,
             codex_observation,
             claude_observation,
+            reasonix_observation,
         )
         self._last_active_provider = active_provider
         self._state.active_provider = active_provider
@@ -164,13 +172,20 @@ class BridgeStateStore:
         if active_provider == "claude":
             self._refresh_claude_usage_locked(force=False)
             active_observation = self._apply_claude_quota(claude_observation)
+        elif active_provider == "reasonix":
+            active_observation = reasonix_observation
         else:
             active_observation = codex_observation
 
         self._state.codex = _codex_state_from_observation(codex_observation)
         self._state.provider = _provider_state_from_observation(active_observation)
         self._apply_alert_from_observation(
-            _select_alert_observation(active_observation, codex_observation, claude_observation)
+            _select_alert_observation(
+                active_observation,
+                reasonix_observation,
+                codex_observation,
+                claude_observation,
+            )
         )
 
     def _apply_alert_from_observation(self, observation: ProviderObservation) -> None:
@@ -508,7 +523,7 @@ def _with_bridge_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _configured_provider() -> str:
     value = os.environ.get("VIBE_STICK_PROVIDER", "auto").strip().lower()
-    return value if value in {"codex", "claude", "auto"} else "auto"
+    return value if value in {"codex", "claude", "reasonix", "auto"} else "auto"
 
 
 def _select_active_provider(
@@ -516,26 +531,32 @@ def _select_active_provider(
     last_active: str,
     codex_observation: ProviderObservation,
     claude_observation: ProviderObservation,
+    reasonix_observation: ProviderObservation,
 ) -> str:
-    if configured in {"codex", "claude"}:
+    observations = {
+        "codex": codex_observation,
+        "claude": claude_observation,
+        "reasonix": reasonix_observation,
+    }
+    if configured in observations:
         return configured
 
-    if codex_observation.online and not claude_observation.online:
-        return "codex"
-    if claude_observation.online and not codex_observation.online:
-        return "claude"
-    if codex_observation.online and claude_observation.online:
-        codex_time = codex_observation.latest_event_timestamp
-        claude_time = claude_observation.latest_event_timestamp
-        if codex_time is not None and claude_time is not None:
-            return "claude" if claude_time > codex_time else "codex"
-        if claude_time is not None:
-            return "claude"
-        if codex_time is not None:
-            return "codex"
-        return last_active if last_active in {"codex", "claude"} else "codex"
+    online = [(provider_id, observation) for provider_id, observation in observations.items() if observation.online]
+    if not online:
+        return last_active if last_active in observations else "reasonix"
+    if len(online) == 1:
+        return online[0][0]
 
-    return last_active if last_active in {"codex", "claude"} else "codex"
+    recent = [
+        (provider_id, observation.latest_event_timestamp)
+        for provider_id, observation in online
+        if observation.latest_event_timestamp is not None
+    ]
+    if recent:
+        return max(recent, key=lambda item: item[1])[0]
+    if last_active in {provider_id for provider_id, _ in online}:
+        return last_active
+    return "reasonix" if reasonix_observation.online else online[0][0]
 
 
 def _select_alert_observation(

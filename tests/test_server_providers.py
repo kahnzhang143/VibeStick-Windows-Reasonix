@@ -11,13 +11,24 @@ from vibe_stick.server import app
 
 class ServerProviderTests(unittest.TestCase):
     def test_configured_provider_accepts_known_values_only(self) -> None:
+        with mock.patch.dict(os.environ, {"VIBE_STICK_PROVIDER": "reasonix"}):
+            self.assertEqual(app._configured_provider(), "reasonix")
         with mock.patch.dict(os.environ, {"VIBE_STICK_PROVIDER": "claude"}):
             self.assertEqual(app._configured_provider(), "claude")
         with mock.patch.dict(os.environ, {"VIBE_STICK_PROVIDER": "bogus"}):
             self.assertEqual(app._configured_provider(), "auto")
 
     def test_select_active_provider_respects_pinned_config(self) -> None:
-        self.assertEqual(app._select_active_provider("claude", "codex", self._obs("codex"), self._obs("claude")), "claude")
+        self.assertEqual(
+            app._select_active_provider(
+                "reasonix",
+                "codex",
+                self._obs("codex"),
+                self._obs("claude"),
+                self._obs("reasonix"),
+            ),
+            "reasonix",
+        )
 
     def test_select_active_provider_auto_uses_online_provider(self) -> None:
         selected = app._select_active_provider(
@@ -25,6 +36,7 @@ class ServerProviderTests(unittest.TestCase):
             "codex",
             self._obs("codex", online=False),
             self._obs("claude", online=True),
+            self._obs("reasonix", online=False),
         )
 
         self.assertEqual(selected, "claude")
@@ -35,6 +47,7 @@ class ServerProviderTests(unittest.TestCase):
             "codex",
             self._obs("codex", latest=datetime(2026, 6, 28, 9, 0, tzinfo=timezone.utc)),
             self._obs("claude", latest=datetime(2026, 6, 28, 9, 1, tzinfo=timezone.utc)),
+            self._obs("reasonix", latest=None, online=False),
         )
 
         self.assertEqual(selected, "claude")
@@ -45,9 +58,21 @@ class ServerProviderTests(unittest.TestCase):
             "claude",
             self._obs("codex", online=False),
             self._obs("claude", online=False),
+            self._obs("reasonix", online=False),
         )
 
         self.assertEqual(selected, "claude")
+
+    def test_select_active_provider_auto_prefers_recent_reasonix(self) -> None:
+        selected = app._select_active_provider(
+            "auto",
+            "codex",
+            self._obs("codex", latest=datetime(2026, 6, 28, 9, 0, tzinfo=timezone.utc)),
+            self._obs("claude", latest=datetime(2026, 6, 28, 9, 1, tzinfo=timezone.utc)),
+            self._obs("reasonix", latest=datetime(2026, 6, 28, 9, 2, tzinfo=timezone.utc)),
+        )
+
+        self.assertEqual(selected, "reasonix")
 
     def test_select_alert_observation_uses_non_active_provider_alert(self) -> None:
         active = self._obs("claude")

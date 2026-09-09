@@ -2,6 +2,11 @@
 
 [中文说明](README.zh-CN.md)
 
+> Windows + Reasonix is supported in this fork. See
+> [docs/WINDOWS_REASONIX.zh-CN.md](docs/WINDOWS_REASONIX.zh-CN.md) for installation and usage.
+
+On Windows, the StickS3 uploads push-to-talk audio over Wi-Fi, the local bridge transcribes it and pastes the text into Reasonix, and a private managed `reasonix serve` instance supplies runtime, approval, completion, and error status.
+
 ![VibeStick home screen showing Codex and Claude providers](assets/brand/home-screen-preview.png)
 
 ![VibeStick voice input flow showing StickS3 recording states and Mac HUD](assets/brand/voice-input-preview.png)

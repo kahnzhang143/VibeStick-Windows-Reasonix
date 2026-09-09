@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import platform
 import signal
 import struct
 import subprocess
@@ -17,7 +18,7 @@ from typing import Any
 from vibe_stick.audio.transcriber import TranscriptionAdapter
 from vibe_stick.config.paths import RECORDINGS_DIR
 from vibe_stick.desktop.hud import hide_hud, show_hud
-from vibe_stick.paste.input_injector import MacPasteInjector
+from vibe_stick.paste.input_injector import create_paste_injector
 
 MIN_AUDIO_DURATION_SECONDS = 0.7
 MIN_AUDIO_RMS = 120.0
@@ -66,7 +67,7 @@ class RecordingController:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.transcriber = TranscriptionAdapter()
-        self.paste_injector = MacPasteInjector()
+        self.paste_injector = create_paste_injector()
         self.audio_recorder = MacMicRecorder()
         self.session = self._load()
 
@@ -446,6 +447,8 @@ class MacMicRecorder:
         self.audio_file: Path | None = None
 
     def start(self, session_id: str) -> tuple[bool, Path | None, str] | None:
+        if platform.system() != "Darwin":
+            return None
         if os.environ.get("VIBE_STICK_RECORDING_USE_MAC_MIC", "1").strip().lower() in {"0", "false", "no", "off"}:
             return None
         if self.process and self.process.poll() is None:

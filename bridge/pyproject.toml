@@ -1,7 +1,7 @@
 [project]
 name = "vibestick"
-version = "0.1.4"
-description = "Local VibeStick Bridge service for VibeStick."
+version = "0.2.0"
+description = "Windows VibeStick Bridge service with Reasonix integration."
 requires-python = ">=3.11"
 dependencies = []
 

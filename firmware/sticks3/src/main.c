@@ -72,6 +72,7 @@ typedef struct {
 typedef enum {
     PROVIDER_CODEX = 0,
     PROVIDER_CLAUDE = 1,
+    PROVIDER_REASONIX = 2,
     PROVIDER_COUNT,
 } agent_provider_t;
 
@@ -197,6 +198,16 @@ static provider_display_state_t s_provider_states[PROVIDER_COUNT] = {
         .quota_updated_at = "",
         .quota_stale = false,
     },
+    [PROVIDER_REASONIX] = {
+        .status = "OFFLINE",
+        .project = "vibestick",
+        .quota_5h = 0,
+        .quota_7d = 0,
+        .quota_5h_valid = false,
+        .quota_7d_valid = false,
+        .quota_updated_at = "",
+        .quota_stale = false,
+    },
 };
 
 extern const lv_font_t vibe_stick_cn_16;
@@ -221,9 +232,18 @@ static const agent_provider_config_t s_provider_configs[] = {
         .enabled = true,
         .implemented = true,
     },
+    {
+        .id = PROVIDER_REASONIX,
+        .key = "reasonix",
+        .display_name = "Reasonix",
+        .icon = NULL,
+        .accent_color = LV_COLOR_MAKE(0x7c, 0x5c, 0xfc),
+        .enabled = true,
+        .implemented = true,
+    },
 };
 
-static agent_provider_t s_current_provider = PROVIDER_CODEX;
+static agent_provider_t s_current_provider = PROVIDER_REASONIX;
 static bool s_provider_manually_selected;
 
 static const lv_point_precise_t s_battery_bolt_points[] = {

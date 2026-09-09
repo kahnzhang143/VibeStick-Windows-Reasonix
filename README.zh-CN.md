@@ -2,6 +2,11 @@
 
 [English README](README.md)
 
+> Windows + Reasonix 版本已经支持。完整安装说明见
+> [docs/WINDOWS_REASONIX.zh-CN.md](docs/WINDOWS_REASONIX.zh-CN.md)。
+
+Windows 版本通过 Wi-Fi 接收 StickS3 录音，在本机完成 ASR 调用并把文本粘贴到 Reasonix，同时通过受管 `reasonix serve` 显示运行、审批、完成和错误状态。它不是蓝牙麦克风，不需要 Windows 音频驱动。
+
 ![VibeStick 首页，显示 Codex 和 Claude 状态](assets/brand/home-screen-preview.png)
 
 ![VibeStick 语音输入流程，显示 StickS3 录音状态和 Mac HUD](assets/brand/voice-input-preview.png)

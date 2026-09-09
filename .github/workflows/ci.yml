@@ -22,3 +22,55 @@ jobs:
 
       - name: Run unit tests
         run: PYTHONPATH=bridge/src python3 -m unittest discover -s tests
+
+  windows-bridge-tests:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python sources
+        run: python -m compileall -q bridge/src tests
+
+      - name: Run unit tests
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = (Resolve-Path "bridge/src").Path
+          python -m unittest discover -s tests
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Error "$($_.Extent.File): $($_.Message)" }
+            }
+          }
+          if ($failed) { exit 1 }
+
+  firmware-build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.1
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build StickS3 firmware
+        working-directory: firmware/sticks3
+        run: idf.py set-target esp32s3 && idf.py build
